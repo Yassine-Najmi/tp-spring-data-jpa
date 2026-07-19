@@ -2,6 +2,15 @@
 
 Yassine Najmi
 
+## Table des matières
+
+1. [Entité Product et configuration H2](#entité-product-et-configuration-h2)
+2. [Opérations de gestion des produits](#opérations-de-gestion-des-produits)
+3. [Migration de H2 vers MySQL](#migration-de-h2-vers-mysql)
+4. [Application hôpital](#application-hôpital)
+5. [Users et Roles](#users-et-roles)
+6. [Conclusion](#conclusion)
+
 ## Entité Product et configuration H2
 
 ### Entité Product
@@ -168,13 +177,56 @@ Le modèle reprend l'exemple classique d'un hôpital : des patients et des méde
 
 Les collections sont annotées `@JsonProperty(access = WRITE_ONLY)` pour éviter une récursion JSON infinie si les entités sont sérialisées plus tard.
 
+```java
+@OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+private Collection<RendezVous> rendezVous;
+```
+
+```java
+@ManyToOne
+private Patient patient;
+
+@ManyToOne
+private Medecin medecin;
+
+@OneToOne(mappedBy = "rendezVous")
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+private Consultation consultation;
+```
+
+```java
+@OneToOne
+private RendezVous rendezVous;
+```
+
 ### Couche service
 
-`IHospitalService` / `HospitalServiceImpl` (`@Service`, `@Transactional`) centralisent la persistance : `savePatient`, `saveMedecin`, `saveRDV`, `saveConsultation`.
+`IHospitalService` / `HospitalServiceImpl` (`@Service`, `@Transactional`) centralisent la persistance :
+
+```java
+public interface IHospitalService {
+    Patient savePatient(Patient patient);
+    Medecin saveMedecin(Medecin medecin);
+    RendezVous saveRDV(RendezVous rendezVous);
+    Consultation saveConsultation(Consultation consultation);
+}
+```
 
 ### Données de démo
 
 Un second `CommandLineRunner` crée deux patients, deux médecins, un rendez-vous (patient + médecin, statut `PENDING`) et une consultation liée à ce rendez-vous. Hibernate crée les tables et les clés étrangères grâce à `ddl-auto=update`.
+
+```java
+Patient p1 = hospitalService.savePatient(
+        Patient.builder().nom("Hassan").dateNaissance(new Date()).malade(false).build());
+Medecin m1 = hospitalService.saveMedecin(
+        Medecin.builder().nom("Dr. Amina").email("amina@mail.com").specialite("Cardio").build());
+RendezVous rdv = hospitalService.saveRDV(
+        RendezVous.builder().date(new Date()).status(StatusRDV.PENDING).patient(p1).medecin(m1).build());
+hospitalService.saveConsultation(
+        Consultation.builder().dateConsultation(new Date()).rapport("...").rendezVous(rdv).build());
+```
 
 ## Users et Roles
 
@@ -195,8 +247,38 @@ Le modèle de sécurité (données uniquement, sans config Spring Security) repo
 private List<Role> roles;
 ```
 
+```java
+@ManyToMany(mappedBy = "roles")
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+private List<User> users;
+```
+
 L'identifiant `userId` est une `String` générée en UUID dans `addNewUser`. Les noms `username` et `roleName` sont uniques.
+
+```java
+public User addNewUser(User user) {
+    user.setUserId(UUID.randomUUID().toString());
+    return userRepository.save(user);
+}
+
+public void addRoleToUser(String username, String roleName) {
+    User user = findUserByUserName(username);
+    Role role = findRoleByRoleName(roleName);
+    user.getRoles().add(role);
+}
+```
 
 ### Table de jointure
 
 Hibernate crée la table `users_roles` avec les colonnes `user_id` et `role_id`. Chaque ligne associe un utilisateur à un rôle. Exemple après la démo : `user1` a STUDENT et USER, `admin` a USER et ADMIN.
+
+```java
+userService.addNewUser(User.builder().username("user1").password("1234").build());
+userService.addNewRole(Role.builder().roleName("STUDENT").build());
+userService.addRoleToUser("user1", "STUDENT");
+userService.addRoleToUser("admin", "ADMIN");
+```
+
+## Conclusion
+
+Ce TP couvre les bases de Spring Data JPA : entités, repositories générés, dérivation de requêtes et `@Query`, puis le passage d'une base H2 en mémoire à MySQL via Docker. On a ensuite modélisé des relations JPA (OneToMany, ManyToOne, OneToOne, ManyToMany) et une couche service `@Transactional` pour l'hôpital et pour les users/roles. L'essentiel est que le métier reste découplé de l'accès aux données grâce aux repositories et au conteneur Spring.
