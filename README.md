@@ -175,3 +175,28 @@ Les collections sont annotées `@JsonProperty(access = WRITE_ONLY)` pour éviter
 ### Données de démo
 
 Un second `CommandLineRunner` crée deux patients, deux médecins, un rendez-vous (patient + médecin, statut `PENDING`) et une consultation liée à ce rendez-vous. Hibernate crée les tables et les clés étrangères grâce à `ddl-auto=update`.
+
+## Users et Roles
+
+Le modèle de sécurité (données uniquement, sans config Spring Security) repose sur une relation **ManyToMany** entre `User` et `Role`.
+
+### Mapping ManyToMany
+
+- Côté `User` : collection `roles` en fetch **EAGER**, avec `@JoinTable(name = "users_roles")`. C'est le côté propriétaire.
+- Côté `Role` : collection `users` avec `mappedBy = "roles"` et `@JsonProperty(access = WRITE_ONLY)` pour éviter la récursion JSON.
+
+```java
+@ManyToMany(fetch = FetchType.EAGER)
+@JoinTable(
+        name = "users_roles",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+)
+private List<Role> roles;
+```
+
+L'identifiant `userId` est une `String` générée en UUID dans `addNewUser`. Les noms `username` et `roleName` sont uniques.
+
+### Table de jointure
+
+Hibernate crée la table `users_roles` avec les colonnes `user_id` et `role_id`. Chaque ligne associe un utilisateur à un rôle. Exemple après la démo : `user1` a STUDENT et USER, `admin` a USER et ADMIN.

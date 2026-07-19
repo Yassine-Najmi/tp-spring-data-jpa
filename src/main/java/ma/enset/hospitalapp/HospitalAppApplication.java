@@ -6,8 +6,11 @@ import ma.enset.hospitalapp.entities.Patient;
 import ma.enset.hospitalapp.entities.Product;
 import ma.enset.hospitalapp.entities.RendezVous;
 import ma.enset.hospitalapp.entities.StatusRDV;
+import ma.enset.hospitalapp.entities.Role;
+import ma.enset.hospitalapp.entities.User;
 import ma.enset.hospitalapp.repositories.ProductRepository;
 import ma.enset.hospitalapp.service.IHospitalService;
+import ma.enset.hospitalapp.service.IUserService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -106,6 +109,30 @@ public class HospitalAppApplication {
             System.out.println("Consultation id=" + consultation.getId()
                     + " rdv=" + consultation.getRendezVous().getId()
                     + " rapport=" + consultation.getRapport());
+        };
+    }
+
+    @Bean
+    CommandLineRunner usersRolesDemo(IUserService userService) {
+        return args -> {
+            System.out.println("===== Users et Roles =====");
+            userService.addNewUser(User.builder().username("user1").password("1234").build());
+            userService.addNewUser(User.builder().username("user2").password("1234").build());
+            userService.addNewUser(User.builder().username("admin").password("1234").build());
+
+            userService.addNewRole(Role.builder().roleName("STUDENT").build());
+            userService.addNewRole(Role.builder().roleName("USER").build());
+            userService.addNewRole(Role.builder().roleName("ADMIN").build());
+
+            userService.addRoleToUser("user1", "STUDENT");
+            userService.addRoleToUser("user1", "USER");
+            userService.addRoleToUser("user2", "USER");
+            userService.addRoleToUser("admin", "USER");
+            userService.addRoleToUser("admin", "ADMIN");
+
+            User admin = userService.findUserByUserName("admin");
+            System.out.println("admin roles :");
+            admin.getRoles().forEach(r -> System.out.println(" - " + r.getRoleName()));
         };
     }
 }
