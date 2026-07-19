@@ -110,3 +110,48 @@ CommandLineRunner start(ProductRepository productRepository) {
 ```
 
 Au lancement, on observe bien les `insert`, `select`, `update` et `delete` dans la console. Après suppression du produit d'id 4 (Keyboard), la liste ne contient plus que trois produits, et le prix du Computer est passé à 4500.
+
+## Migration de H2 vers MySQL
+
+H2 convient pour des essais rapides en mémoire, mais les données disparaissent à l'arrêt de l'application. Pour se rapprocher d'un usage réel, on bascule vers MySQL 8 dans un conteneur Docker.
+
+### Docker Compose
+
+Le fichier `docker-compose.yml` démarre un conteneur nommé `mysql-hospital`, mot de passe root `root`, port hôte `3307` vers `3306` dans le conteneur :
+
+```yaml
+services:
+  mysql-hospital:
+    image: mysql:8
+    container_name: mysql-hospital
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+```
+
+Démarrage : `docker compose up -d`.
+
+### Dépendance et configuration
+
+On ajoute `mysql-connector-j` dans le `pom.xml`. La config H2 est conservée en commentaire dans `application.properties` pour référence. Spring Boot 3.5 détecte le dialecte MySQL automatiquement, donc on n'ajoute pas `MySQL8Dialect`.
+
+```properties
+# Ancienne config H2 (référence)
+# spring.datasource.url=jdbc:h2:mem:products-db
+# ...
+
+spring.datasource.url=jdbc:mysql://localhost:3307/products-db?createDatabaseIfNotExist=true
+spring.datasource.username=root
+spring.datasource.password=root
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.show-sql=true
+spring.jpa.hibernate.ddl-auto=update
+```
+
+Le paramètre `createDatabaseIfNotExist=true` crée la base `products-db` si elle n'existe pas encore.
+
+### ddl-auto=update
+
+Avec `update`, Hibernate crée ou met à jour le schéma (tables, colonnes) au démarrage selon les entités. C'est pratique en développement : on peut modifier `Product` sans écrire de scripts SQL à la main. En production, on évite ce mode car une évolution d'entité peut altérer la base de façon peu contrôlée. On préfère alors des migrations versionnées (Flyway ou Liquibase) et souvent `ddl-auto=validate` ou `none`.

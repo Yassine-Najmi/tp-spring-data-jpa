@@ -1,0 +1,13 @@
+services:
+  mysql-hospital:
+    image: mysql:8
+    container_name: mysql-hospital
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-hospital-data:/var/lib/mysql
+
+volumes:
+  mysql-hospital-data:
