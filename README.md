@@ -155,3 +155,23 @@ Le paramètre `createDatabaseIfNotExist=true` crée la base `products-db` si ell
 ### ddl-auto=update
 
 Avec `update`, Hibernate crée ou met à jour le schéma (tables, colonnes) au démarrage selon les entités. C'est pratique en développement : on peut modifier `Product` sans écrire de scripts SQL à la main. En production, on évite ce mode car une évolution d'entité peut altérer la base de façon peu contrôlée. On préfère alors des migrations versionnées (Flyway ou Liquibase) et souvent `ddl-auto=validate` ou `none`.
+
+## Application hôpital
+
+Le modèle reprend l'exemple classique d'un hôpital : des patients et des médecins sont liés par des rendez-vous, et chaque rendez-vous peut donner lieu à une consultation.
+
+### Relations
+
+- `Patient` / `Medecin` → `RendezVous` : relation **OneToMany** (côté collections, `mappedBy`, fetch **LAZY** pour ne charger les RDV que si besoin)
+- `RendezVous` → `Patient` / `Medecin` : relation **ManyToOne** (côté propriétaire des clés étrangères)
+- `RendezVous` ↔ `Consultation` : relation **OneToOne** (`mappedBy` côté `RendezVous`, la FK est portée par `Consultation`)
+
+Les collections sont annotées `@JsonProperty(access = WRITE_ONLY)` pour éviter une récursion JSON infinie si les entités sont sérialisées plus tard.
+
+### Couche service
+
+`IHospitalService` / `HospitalServiceImpl` (`@Service`, `@Transactional`) centralisent la persistance : `savePatient`, `saveMedecin`, `saveRDV`, `saveConsultation`.
+
+### Données de démo
+
+Un second `CommandLineRunner` crée deux patients, deux médecins, un rendez-vous (patient + médecin, statut `PENDING`) et une consultation liée à ce rendez-vous. Hibernate crée les tables et les clés étrangères grâce à `ddl-auto=update`.

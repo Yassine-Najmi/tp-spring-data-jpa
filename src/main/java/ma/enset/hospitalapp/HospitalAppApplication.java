@@ -1,12 +1,19 @@
 package ma.enset.hospitalapp;
 
+import ma.enset.hospitalapp.entities.Consultation;
+import ma.enset.hospitalapp.entities.Medecin;
+import ma.enset.hospitalapp.entities.Patient;
 import ma.enset.hospitalapp.entities.Product;
+import ma.enset.hospitalapp.entities.RendezVous;
+import ma.enset.hospitalapp.entities.StatusRDV;
 import ma.enset.hospitalapp.repositories.ProductRepository;
+import ma.enset.hospitalapp.service.IHospitalService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Date;
 import java.util.List;
 
 @SpringBootApplication
@@ -52,10 +59,53 @@ public class HospitalAppApplication {
             System.out.println("Après update : " + productRepository.findById(1L).orElse(null));
 
             System.out.println("===== 6. Suppression puis nouvelle liste =====");
-            productRepository.deleteById(4L);
+            if (productRepository.existsById(4L)) {
+                productRepository.deleteById(4L);
+            }
             productRepository.findAll().forEach(p -> {
                 System.out.println(p.getId() + " | " + p.getName() + " | " + p.getPrice() + " | " + p.getQuantity());
             });
+        };
+    }
+
+    @Bean
+    CommandLineRunner hospitalDemo(IHospitalService hospitalService) {
+        return args -> {
+            System.out.println("===== Hôpital : patients =====");
+            Patient p1 = hospitalService.savePatient(
+                    Patient.builder().nom("Hassan").dateNaissance(new Date()).malade(false).build());
+            Patient p2 = hospitalService.savePatient(
+                    Patient.builder().nom("Yassine").dateNaissance(new Date()).malade(true).build());
+            System.out.println("Patients : " + p1.getId() + "-" + p1.getNom() + ", " + p2.getId() + "-" + p2.getNom());
+
+            System.out.println("===== Hôpital : médecins =====");
+            Medecin m1 = hospitalService.saveMedecin(
+                    Medecin.builder().nom("Dr. Amina").email("amina@mail.com").specialite("Cardio").build());
+            Medecin m2 = hospitalService.saveMedecin(
+                    Medecin.builder().nom("Dr. Karim").email("karim@mail.com").specialite("Dentiste").build());
+            System.out.println("Médecins : " + m1.getId() + "-" + m1.getNom() + ", " + m2.getId() + "-" + m2.getNom());
+
+            System.out.println("===== Hôpital : rendez-vous =====");
+            RendezVous rdv = hospitalService.saveRDV(
+                    RendezVous.builder()
+                            .date(new Date())
+                            .status(StatusRDV.PENDING)
+                            .patient(p1)
+                            .medecin(m1)
+                            .build());
+            System.out.println("RDV id=" + rdv.getId() + " patient=" + rdv.getPatient().getNom()
+                    + " medecin=" + rdv.getMedecin().getNom() + " status=" + rdv.getStatus());
+
+            System.out.println("===== Hôpital : consultation =====");
+            Consultation consultation = hospitalService.saveConsultation(
+                    Consultation.builder()
+                            .dateConsultation(new Date())
+                            .rapport("Consultation cardio : bilans normaux")
+                            .rendezVous(rdv)
+                            .build());
+            System.out.println("Consultation id=" + consultation.getId()
+                    + " rdv=" + consultation.getRendezVous().getId()
+                    + " rapport=" + consultation.getRapport());
         };
     }
 }
